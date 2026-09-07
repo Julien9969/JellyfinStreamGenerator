@@ -3,6 +3,8 @@
 This plugin for Jellyfin adds a "Generate Stream URL" option to the context menu of video items.  
 It allows to generate urls with custom parameters and separate tokens.
 
+Find this plugin useful? Consider starring this repository.
+
 ## Why?
 
 Sometimes you need to play video from a Jellyfin in a dumb player (like in games) and this is becoming a pain to do.  
@@ -18,15 +20,19 @@ Inspired by [vrchat-jellyfin](https://github.com/orcachillin/vrchat-jellyfin) bu
 
 ### Requirements
 
+- **Jellyfin 10.11.x**
 - **Jellyfin File Transformation Plugin**: This plugin relies on [jellyfin-plugin-file-transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation). You must install it on your server first.
-
 
 ### Via Plugin Repository (recommended)
 
-1. In Jellyfin, go to **Dashboard → Plugins → Repositories**
-2. Add a new repository with the URL:
+1. In Jellyfin, go to **Dashboard -> Plugins -> Repositories**
+2. Add a new repository with the stable manifest URL:
    ```
    https://skproch.github.io/JellyfinStreamGenerator/manifest.json
+   ```
+   Nightly builds are available from a separate repository manifest:
+   ```
+   https://skproch.github.io/JellyfinReplayGain/manifest-nightly.json
    ```
 3. Go to **Catalog**, find **Stream Generator** and install it
 4. Restart your Jellyfin Server
@@ -36,6 +42,10 @@ Inspired by [vrchat-jellyfin](https://github.com/orcachillin/vrchat-jellyfin) bu
 1. Download the latest plugin zip from [GitHub Releases](https://github.com/SKProCH/JellyfinStreamGenerator/releases)
 2. Extract the zip into a new folder inside your Jellyfin server's `plugins` directory, e.g. `<Jellyfin Data Folder>/plugins/StreamGenerator/`
 3. Restart your Jellyfin Server
+
+## My other plugins
+
+[JellyfinReplayGain](https://github.com/SKProCH/JellyfinReplayGain) - measures and adjusts volume on the fly during transcoding without modifying media files
 
 ## Versioning
 
