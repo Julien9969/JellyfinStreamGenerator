@@ -26,13 +26,9 @@ Inspired by [vrchat-jellyfin](https://github.com/orcachillin/vrchat-jellyfin) bu
 ### Via Plugin Repository (recommended)
 
 1. In Jellyfin, go to **Dashboard -> Plugins -> Repositories**
-2. Add a new repository with the stable manifest URL:
+2. Add a new repository manifest URL:
    ```
    https://skproch.github.io/JellyfinStreamGenerator/manifest.json
-   ```
-   Nightly builds are available from a separate repository manifest:
-   ```
-   https://skproch.github.io/JellyfinReplayGain/manifest-nightly.json
    ```
 3. Go to **Catalog**, find **Stream Generator** and install it
 4. Restart your Jellyfin Server
