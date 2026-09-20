@@ -58,6 +58,10 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
         apiClient.getJSON(apiClient.getUrl('Users/' + apiClient.getCurrentUserId())).catch(() => ({})),
         apiClient.getJSON(apiClient.getUrl('System/Configuration/encoding')).catch(() => ({}))
     ]).then(([item, settings, user, encodingConfiguration]) => {
+        const policy = user?.Policy || {};
+        const videoTranscodingAllowed = policy.EnableVideoPlaybackTranscoding === true;
+        const audioTranscodingAllowed = policy.EnableAudioPlaybackTranscoding === true;
+
         if (!item || !item.MediaSources || item.MediaSources.length === 0) {
             showToast("Cannot get media sources for this item.");
             return;
@@ -73,6 +77,10 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
 
         const sourceVideoCodecsLower = new Set(sourceVideoCodecs.map(codec => codec.toLowerCase()));
         const sourceAudioCodecsLower = new Set(sourceAudioCodecs.map(codec => codec.toLowerCase()));
+
+        const nativeAudioRequiresTs = sourceAudioCodecs.some(codec =>
+            ['eac3', 'ac3', 'truehd', 'dts', 'dts-hd'].includes(codec.toLowerCase())
+        );
 
         /* Filter video codecs for transcoding; H.264 is the baseline target. */
         const videoCodecs = ['h264'];
@@ -171,7 +179,7 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
         };
         let autoSubtitle = findAutoSubtitle(mediaSource.DefaultAudioStreamIndex);
         let autoSubtitleStreamIndex = autoSubtitle ? autoSubtitle.stream.Index : null;
-        const defaultSubtitleMethod = autoSubtitle ? 'Encode' : 'Hls';
+        const defaultSubtitleMethod = autoSubtitle && videoTranscodingAllowed ? 'Encode' : 'Hls';
         subtitleOptions += '<option value="auto" selected>' + getAutoLabel(autoSubtitle) + '</option>';
         subtitleOptions += '<option value="-1">None</option>';
         subtitleStreams.forEach(entry => {
@@ -218,14 +226,16 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
 
         html += '<label>Video Codecs</label>';
         html += '<div style="' + checkboxContainerStyle + '">';
+        html += '<label style="' + checkboxLabelStyle + '"><input type="checkbox" id="useOriginalVideoFormat" checked style="margin-right: 5px;">Native (' + sourceVideoCodecs.join(', ').toUpperCase() + ')</label>';
         html += videoCodecsHtml;
         html += '</div>';
 
         html += '<label>Audio Codecs</label>';
         html += '<div style="' + checkboxContainerStyle + '">';
-        html += '<label style="' + checkboxLabelStyle + '"><input type="checkbox" name="audioCodec" value="aac" checked style="margin-right: 5px;">AAC</label>';
-        html += '<label style="' + checkboxLabelStyle + '"><input type="checkbox" name="audioCodec" value="opus" checked style="margin-right: 5px;">OPUS</label>';
-        html += '<label style="' + checkboxLabelStyle + '"><input type="checkbox" name="audioCodec" value="flac" checked style="margin-right: 5px;">FLAC</label>';
+        html += '<label style="' + checkboxLabelStyle + '"><input type="checkbox" id="useOriginalAudioFormat" checked style="margin-right: 5px;">Native (' + sourceAudioCodecs.join(', ').toUpperCase() + ')</label>';
+        html += audioTranscodingAllowed
+            ? generateCodecCheckboxesHtml(['aac', 'flac', 'opus'].filter(codec => !sourceAudioCodecsLower.has(codec)), 'audioCodec', checkboxLabelStyle)
+            : '';
         html += '</div>';
 
         const minBitrate = 1000000;
@@ -291,7 +301,9 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
         html += '<label>Subtitle Method<br>';
         html += '<select id="subtitleMethod" style="' + selectStyle + '">';
         html += '<option value="Hls"' + (defaultSubtitleMethod === 'Hls' ? ' selected' : '') + '>HLS</option>';
-        html += '<option value="Encode"' + (defaultSubtitleMethod === 'Encode' ? ' selected' : '') + '>Burn In (Encode)</option>';
+        if (videoTranscodingAllowed) {
+            html += '<option value="Encode"' + (defaultSubtitleMethod === 'Encode' ? ' selected' : '') + '>Burn In (Encode)</option>';
+        }
         html += '<option value="Embed">Embed</option>';
         html += '<option value="Drop">Drop</option>';
         html += '</select></label>';
@@ -311,8 +323,8 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
 
         html += '<label style="display: block; margin-top: 15px;">Segment Container:<br>';
         html += '<select id="segmentContainer" style="' + selectStyle + ' margin-bottom: 0;">';
-        html += '<option value="mp4" selected>fMP4 (recommended)</option>';
-        html += '<option value="ts">MPEG-TS</option>';
+        html += '<option value="mp4"' + (nativeAudioRequiresTs ? '' : ' selected') + '>fMP4 (recommended)</option>';
+        html += '<option value="ts"' + (nativeAudioRequiresTs ? ' selected' : '') + '>MPEG-TS</option>';
         html += '</select>';
         html += '<small style="display: block; margin-top: 6px; color: #bbb; line-height: 1.4;">';
         html += 'Choose MPEG-TS for older, embedded, or otherwise limited HLS players that cannot play fragmented MP4.';
@@ -355,6 +367,8 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
 
         /* Maximize Compatibility: keep only h264 + aac */
         modal.querySelector('#btnMaxCompatibility').addEventListener('click', function () {
+            modal.querySelector('#useOriginalVideoFormat').checked = false;
+            modal.querySelector('#useOriginalAudioFormat').checked = false;
             modal.querySelectorAll('input[name="videoCodec"]').forEach(function (cb) {
                 cb.checked = cb.value === 'h264';
             });
@@ -380,15 +394,23 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
             modal.querySelector('#subtitleStreamIndex option[value="auto"]').textContent = getAutoLabel(autoSubtitle);
 
             if (modal.querySelector('#subtitleStreamIndex').value === 'auto') {
-                modal.querySelector('#subtitleMethod').value = autoSubtitle ? 'Encode' : 'Drop';
+                modal.querySelector('#subtitleMethod').value = autoSubtitle && videoTranscodingAllowed ? 'Encode' : 'Hls';
             }
         });
 
         modal.querySelector('#subtitleStreamIndex').addEventListener('change', function (e) {
             if (e.target.value === 'auto') {
-                modal.querySelector('#subtitleMethod').value = autoSubtitleStreamIndex === null ? 'Drop' : 'Encode';
+                modal.querySelector('#subtitleMethod').value = autoSubtitleStreamIndex === null || !videoTranscodingAllowed ? 'Hls' : 'Encode';
             } else if (e.target.value === '-1') {
                 modal.querySelector('#subtitleMethod').value = 'Drop';
+            }
+        });
+
+        modal.querySelector('#subtitleMethod').addEventListener('change', function (e) {
+            if (e.target.value === 'Encode') {
+                modal.querySelector('#useOriginalVideoFormat').checked = false;
+                const h264Checkbox = modal.querySelector('input[name="videoCodec"][value="h264"]');
+                if (h264Checkbox) h264Checkbox.checked = true;
             }
         });
 
@@ -404,19 +426,28 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
             const allVideoCheckboxes = Array.from(modal.querySelectorAll('input[name="videoCodec"]'));
             const allAudioCheckboxes = Array.from(modal.querySelectorAll('input[name="audioCodec"]'));
 
-            const videoCodecCheckboxes = allVideoCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
-            const audioCodecCheckboxes = allAudioCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+            const subtitleMethod = modal.querySelector('#subtitleMethod').value;
+            const useOriginalVideoFormat = modal.querySelector('#useOriginalVideoFormat').checked;
+            const useOriginalAudioFormat = modal.querySelector('#useOriginalAudioFormat').checked;
+            const videoCodecCheckboxes = (subtitleMethod !== 'Encode' && useOriginalVideoFormat)
+                ? [...new Set(sourceVideoCodecs)]
+                : allVideoCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+                
+            const audioCodecCheckboxes = useOriginalAudioFormat
+                ? [...new Set(sourceAudioCodecs)]
+                : allAudioCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
 
             const videoCodecsStr = videoCodecCheckboxes.join(',');
             const audioCodecsStr = audioCodecCheckboxes.join(',');
 
             const audioStreamIndex = modal.querySelector('#audioStreamIndex').value;
             const subtitleSelection = modal.querySelector('#subtitleStreamIndex').value;
-            const subtitleMethod = modal.querySelector('#subtitleMethod').value;
             const copyTimestamps = modal.querySelector('#copyTimestamps').checked;
             const selectedBitrate = parseInt(modal.querySelector('#maxVideoBitrate').value, 10);
             const maxVideoBitrate = selectedBitrate === sliderMax ? null : selectedBitrate;
-            const segmentContainer = modal.querySelector('#segmentContainer').value;
+            const segmentContainer = useOriginalAudioFormat && nativeAudioRequiresTs
+                ? 'ts'
+                : modal.querySelector('#segmentContainer').value;
 
             const serverUrl = apiClient.serverAddress();
 
