@@ -151,7 +151,7 @@ public class StreamGeneratorPlugin : BasePlugin<PluginConfiguration>, IHasWebPag
             );
 
             var generateStreamCase =
-                @"case""generate-stream"":if(window.showStreamGeneratorPopup){window.showStreamGeneratorPopup(c,u)}else if(window.streamGeneratorPopupPromise){window.streamGeneratorPopupPromise.then(function(){if(window.showStreamGeneratorPopup)window.showStreamGeneratorPopup(c,u)}).catch(function(e){console.error(""StreamGenerator popup script failed to load"",e)})}else{console.error(""StreamGenerator popup script not loaded!"")}try{k(l,t)()}catch(e){console.error(""StreamGenerator: Error calling getResolveFunction"",e)}break;";
+                @"case""generate-stream"":if(window.showStreamGeneratorPopup){window.showStreamGeneratorPopup(c,u)}else if(window.streamGeneratorPopupPromise){window.streamGeneratorPopupPromise.then(function(){if(window.showStreamGeneratorPopup)window.showStreamGeneratorPopup(c,u)}).catch(function(e){console.error(""StreamGenerator popup script failed to load"",e)})}else{console.error(""StreamGenerator popup script not loaded!"")}break;";
 
             var regexCase = Regex.Replace(
                 regexContext,
