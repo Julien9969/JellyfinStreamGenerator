@@ -18,6 +18,7 @@ public class StreamGeneratorPluginTests
         result.Should().NotContain("showStreamGeneratorPopup(c,u)");
         result.Should().Contain("window.showStreamGeneratorPopup(context.item.Id,context.serverId)");
         result.Should().Contain("import(window.ApiClient.getUrl('StreamGenerator/PopupContent.js'))");
+        result.Should().NotContain("getResolveFunction");
     }
 
     [Fact]
