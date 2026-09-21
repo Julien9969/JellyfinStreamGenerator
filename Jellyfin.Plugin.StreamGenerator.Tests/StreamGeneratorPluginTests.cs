@@ -5,14 +5,12 @@ namespace Jellyfin.Plugin.StreamGenerator.Tests;
 public class StreamGeneratorPluginTests
 {
     [Fact]
-    public void PatchContextMenu_AddsPopupLoaderWithoutCallingResolver()
+    public void PatchContextMenu_UsesCommandArgumentsInsteadOfMinifiedNames()
     {
-        const string contextMenu = "items.push({id:\"copy-stream\",icon:\"content_copy\"});switch(x){case\"copy-stream\":break;}";
+        const string source = "function executeCommand(item,id,options){return new Promise(function(resolve,reject){switch(id){case\"copy-stream\":copy();break;}})}" +
+                              "const commands=[{name:\"Download\",id:\"copy-stream\",icon:\"content_copy\"}];";
 
-        var result = StreamGeneratorPlugin.PatchContextMenu(new PatchRequestPayload
-        {
-            Contents = contextMenu
-        });
+        var result = StreamGeneratorPlugin.PatchContextMenu(new PatchRequestPayload { Contents = source });
 
         result.Should().Contain("id:\"generate-stream\"");
         result.Should().Contain("case\"generate-stream\"");

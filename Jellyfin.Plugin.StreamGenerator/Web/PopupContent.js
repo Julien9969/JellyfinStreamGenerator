@@ -533,6 +533,9 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
                 buildUrl(apiClient.accessToken());
             }
         });
+    }).catch(function (error) {
+        console.error('StreamGenerator: Failed to load popup data', error);
+        showToast('Failed to load stream options. Please create an issue and attach all messages from the browser Console.');
     });
 };
 window.showStreamGeneratorPopup = showStreamGeneratorPopup;
