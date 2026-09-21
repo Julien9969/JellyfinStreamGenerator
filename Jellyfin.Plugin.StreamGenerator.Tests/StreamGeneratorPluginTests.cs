@@ -14,8 +14,32 @@ public class StreamGeneratorPluginTests
             Contents = contextMenu
         });
 
-        result.Should().Contain("id:\"generate-stream\",icon:\"link\"");
-        result.Should().Contain("StreamGenerator/PopupContent.js");
+        result.Should().Contain("id:\"generate-stream\"");
+        result.Should().Contain("case\"generate-stream\"");
+        result.Should().Contain("window.streamGeneratorCommandContext={item:item,serverId:item.ServerId};");
+        result.Should().NotContain("showStreamGeneratorPopup(c,u)");
+        result.Should().Contain("window.showStreamGeneratorPopup(context.item.Id,context.serverId)");
+        result.Should().Contain("import(window.ApiClient.getUrl('StreamGenerator/PopupContent.js'))");
         result.Should().NotContain("getResolveFunction");
+    }
+
+    [Fact]
+    public void PatchContextMenu_WhenCopyStreamCommandIsMissing_ReturnsOriginalContent()
+    {
+        const string source = "const commands=[];";
+
+        var result = StreamGeneratorPlugin.PatchContextMenu(new PatchRequestPayload { Contents = source });
+
+        result.Should().Be(source);
+    }
+
+    [Fact]
+    public void PatchContextMenu_WhenCommandHandlerCannotBeResolved_ReturnsOriginalContent()
+    {
+        const string source = "const commands=[{id:\"copy-stream\",icon:\"content_copy\"}];case\"copy-stream\":break;";
+
+        var result = StreamGeneratorPlugin.PatchContextMenu(new PatchRequestPayload { Contents = source });
+
+        result.Should().Be(source);
     }
 }

@@ -1,7 +1,12 @@
 var showStreamGeneratorPopup = function (itemId, serverId) {
     const apiClient = window.ApiClient;
     const getItemId = function (value) {
-        return typeof value === 'string' ? value : value?.Id || value?.id;
+        if (typeof value === 'string') {
+            return value;
+        }
+
+        const candidate = value?.Id || value?.id;
+        return typeof candidate === 'string' ? candidate : null;
     };
     const getItemIdFromLocation = function () {
         const locationText = window.location.hash + window.location.search;
@@ -9,6 +14,11 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
         return match ? match[1] : null;
     };
     const normalizedItemId = getItemIdFromLocation() || getItemId(itemId);
+
+    if (!apiClient) {
+        console.error('StreamGenerator: Jellyfin ApiClient is not available');
+        return;
+    }
 
     const showToast = function (message) {
         const toast = document.createElement('div');
@@ -36,6 +46,32 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
         }, 2500);
     };
 
+    const getFilteredCodecs = function (sourceCodecs, supportedTranscodingCodecs, baseCodecs, fallbackCodec) {
+        const sourceCodecsLower = sourceCodecs.map(c => c.toLowerCase());
+        const supportedLower = supportedTranscodingCodecs.map(c => c.toLowerCase());
+
+        const filtered = baseCodecs.filter(c =>
+            sourceCodecsLower.includes(c) || supportedLower.includes(c)
+        );
+
+        sourceCodecsLower.forEach(c => {
+            if (!filtered.includes(c)) {
+                filtered.push(c);
+            }
+        });
+
+        if (fallbackCodec && !filtered.includes(fallbackCodec) && supportedLower.includes(fallbackCodec)) {
+            filtered.push(fallbackCodec);
+        }
+
+        filtered.sort((a, b) => {
+            if (a === fallbackCodec) return -1;
+            if (b === fallbackCodec) return 1;
+            return a.localeCompare(b);
+        });
+
+        return filtered;
+    };
 
     const generateCodecCheckboxesHtml = function (codecs, inputName, checkboxLabelStyle) {
         let html = '';
@@ -51,7 +87,7 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
         return;
     }
 
-    /* Fetch media item and user settings */
+    /* Fetch media item and encoding options */
     Promise.all([
         apiClient.getItem(apiClient.getCurrentUserId(), normalizedItemId),
         apiClient.getJSON(apiClient.getUrl('StreamGenerator/Settings')).catch(() => ({})),
@@ -69,16 +105,10 @@ var showStreamGeneratorPopup = function (itemId, serverId) {
 
         /* Filter Video Codecs */
         const sourceVideoCodecs = (mediaSource.MediaStreams || []).filter(s => s.Type === 'Video').map(s => s.Codec).filter(Boolean);
-        const sourceAudioCodecs = (mediaSource.MediaStreams || []).filter(s => s.Type === 'Audio').map(s => s.Codec).filter(Boolean);
-
-        const sourceVideoCodecsLower = new Set(sourceVideoCodecs.map(codec => codec.toLowerCase()));
-        const sourceAudioCodecsLower = new Set(sourceAudioCodecs.map(codec => codec.toLowerCase()));
-
-        /* Filter video codecs for transcoding; H.264 is the baseline target. */
-        const videoCodecs = ['h264'];
-        if (encodingConfiguration.AllowHevcEncoding === true) videoCodecs.push('hevc');
-        if (encodingConfiguration.AllowAv1Encoding === true) videoCodecs.push('av1');
-
+        const supportedTranscodingCodecs = ['h264'];
+        if (encodingConfiguration?.AllowHevcEncoding === true) supportedTranscodingCodecs.push('hevc');
+        if (encodingConfiguration?.AllowAv1Encoding === true) supportedTranscodingCodecs.push('av1');
+        const videoCodecs = getFilteredCodecs(sourceVideoCodecs, supportedTranscodingCodecs, ['h264', 'hevc', 'av1', 'vp9'], 'h264');
         const videoCodecsHtml = generateCodecCheckboxesHtml(videoCodecs, 'videoCodec', checkboxLabelStyle);
 
         const videoStream = (mediaSource.MediaStreams || []).find(s => s.Type === 'Video');
